@@ -2,4 +2,5 @@ Flask
 langchain
 cohere
 langchain_cohere
+flask-cors
 python-dotenv

@@ -23,11 +23,11 @@ prompt = ChatPromptTemplate.from_messages(
 
             Ensure the following conditions are met:
             1. **Amount** must be a positive number in USD ($), with no words (e.g., "109" is valid, but "one hundred and nine" is not).
-            2. If the amount is missing, not a valid number, or includes words, respond with: **Invalid amount ❌**.
-            3. Ignore any messages that are not related to expenses, such as greetings or irrelevant text, by responding with: **I only categorize expenses.**
+            2. If the amount is missing, not a valid number, includes words, or is equal or minor to 0.
+            3. Ignore any messages that are not related to expenses, such as greetings or irrelevant text.
 
             Input example:
-            - Description: "{description}"
+            - user_message: "{user_message}"
 
             Return a valid JSON object without any additional text, such that the structure is:
 
@@ -43,11 +43,12 @@ prompt = ChatPromptTemplate.from_messages(
             - category is the appropriate expense category.
             - message is one of the following:
                 - For valid expenses: `<category> expense added ✅`
-                - For invalid expenses: `Invalid amount ❌`
                 - For non-expense messages: `I only categorize expenses.`
+                - For invalid amount: `Invalid amount ❌`
+                - For invalid expense: `Invalid expense ❌`
             """
         ),
-        MessagesPlaceholder(variable_name="description"),
+        MessagesPlaceholder(variable_name="user_message"),
     ]
 )
 
@@ -56,31 +57,29 @@ chain = prompt | model
 
 def process_message(user_message):
     # Invoke the model with user input
-    response = chain.invoke({"description": [HumanMessage(content=user_message)]})
+    response = chain.invoke({"user_message": [HumanMessage(content=user_message)]})
 
+
+    # Clean the response by removing extra characters
+    cleaned_response = response.content.strip()
+
+    # Remove any prefix like "json" or "JSON Response:"
+    cleaned_response = cleaned_response.replace('JSON Response:', '').strip()
+    cleaned_response = cleaned_response.replace('JSON', '').strip()
+    cleaned_response = cleaned_response.replace('json', '').replace('`', '').strip()
     try:
-        # Clean the response by removing extra characters
-        cleaned_response = response.content.strip()
-
-        # Remove any prefix like "json" or "JSON Response:"
-        cleaned_response = cleaned_response.replace('JSON Response:', '').strip()
-        cleaned_response = cleaned_response.replace('json', '').replace('`', '').strip()
-
         # Try parsing the cleaned response
         response_json = json.loads(cleaned_response)
         # Extract the message from the JSON
         message = response_json.get("message", "No message provided")
-
         return {
             "json": response_json,
             "message": message
         }
-
     except json.JSONDecodeError as e:
         print('Error decoding JSON:', str(e))
         print('Response content that caused the error:', cleaned_response)
         return {
             "json": None,
-            "message": "Error: Could not parse the response."
+            "message": cleaned_response
         }
-

@@ -14,7 +14,6 @@ def process():
         processed_data = process_message(user_message)
 
         return jsonify({"response": processed_data})
-        print('message', processed_data)
 
     except Exception as e:
         print(f"Error processing message: {str(e)}")
